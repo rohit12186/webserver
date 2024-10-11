@@ -1,33 +1,55 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
-  labels:
-    app: nginx
+  name: wordpress
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
-      app: nginx
+      app: wordpress
   template:
     metadata:
       labels:
-        app: nginx
+        app: wordpress
     spec:
       containers:
-      - name: nginx
-        image: nginx:latest
-        ports:
-        - containerPort: 80
+        - name: wordpress
+          image: wordpress:5.8.3-php7.4-apache
+          ports:
+            - containerPort: 80
+              name: wordpress
+          volumeMounts:
+            - name: wordpress-data
+              mountPath: /var/www/html
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: mysql-service.default.svc.cluster.local
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: WORDPRESS_DB_USER
+              value: root
+            - name: WORDPRESS_DB_NAME
+              value: mysql
+      volumes:
+        - name: wordpress-data
+          persistentVolumeClaim:
+            claimName: wordpress-pvc
 ---
-apiVersion: v1
 kind: Service
+apiVersion: v1
 metadata:
-  name: nginx-service
+  name: wordpress-service
 spec:
-  type: LoadBalancer
-  ports:
-    - port: 80
-      targetPort: 80
+  type: NodePort
   selector:
-    app: nginx
+    app: wordpress
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30007
